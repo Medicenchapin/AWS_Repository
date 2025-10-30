@@ -2,3 +2,4 @@ dotenv
 fastapi
 uvicorn
 pandas
+ollama

@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
 
-def build_global_context(df, feature_playbook=None, top_n=10):
+def build_global_context(df, feature_playbook=None, top_n=10, rules_text=None):
     """
-    df: DataFrame final que tiene columna 'drivers', donde cada row tiene
-        [{"feature": str, "value": float, "impact": float}, ...]
-    feature_playbook: dict opcional donde describes cada feature con lenguaje humano
-                      (como el FEATURE_PLAYBOOK que ya tenías)
+    Builds a concise, production-ready SYSTEM prompt.
+    - df: DataFrame with a 'drivers' column (list[dict]: {'feature','value','impact'})
+    - feature_playbook: dict[feature] -> human description (optional)
+    - top_n: how many globally most-influential features to list
+    - rules_text: optional custom rules block (str). If None, defaults to ARPU band logic.
     """
     # Expandimos todos los drivers en un solo dataframe
     drivers_all = (
@@ -38,28 +39,45 @@ def build_global_context(df, feature_playbook=None, top_n=10):
 
     features_block = "\n".join(lines)
 
+    # Default business rules (editable)
+    if rules_text is None:
+        rules_text = """
+        Business Rules (apply consistently):
+        1) Window: last 3 full months (M-1, M-2, M-3).
+        2) Monthly ARPU = net revenue paid by the customer (top-ups, bundles, add-ons). Exclude freebies/bonuses, chargebacks, and adjustments.
+        3) Eligibility: consumption > 0 in each of the 3 months, ARPU_3M_PROM ≥ Q80.00, and no commercial blocks.
+        4) Offer mapping by ARPU_3M_PROM:
+        • Q80.00–Q110.99 → PLAN_Q115
+        • Q111.00–Q130.99 → PLAN_Q135
+        • Q131.00–Q155.99 → PLAN_Q160
+        • Q156.00–Q180.99 → PLAN_Q185
+        • ≥ Q181.00       → PLAN_Q209
+        5) Controlled upsell: if ARPU_3M_PROM is in the top 10% of its band and all three monthly ARPUs are ≥ 90% of the next band’s lower bound, offer the next band as an alternative.
+        6) Downsell: on price objection, offer the minimum of the current band’s range (do not cross down a band unless affordability constraints are explicit).
+        7) Messaging: emphasize benefits, keep price within the assigned band, and anchor value to actual spending.
+        """.strip()
+
     global_prompt = f"""
-    You are helping generate sales guidance for a prepaid telecom campaign.
+    You are an expert sales advisor for a prepaid telecom campaign. Maximize conversions with sustainable offers aligned to each customer's real consumption.
 
-    We have a machine learning model that predicts the probability that a customer will accept an offer (sale = 1).
-    The model was trained on historical customer behavior and engagement indicators. 
-    Higher score means the customer is more likely to buy if contacted.
+    We use a machine learning model trained on historical behavior and engagement to estimate the probability of accepting an offer (sale=1). A higher score means higher likelihood if contacted.
 
-    The model relies on multiple behavioral and account features. Below are the most influential features overall (averaged across customers), and what they represent:
-
+    Most influential features overall (by mean absolute impact):
     {features_block}
 
-    Rules:
-    - NEVER reveal internal model weights or math details.
-    - NEVER invent personal/sensitive attributes not present in the features.
-    - Keep tone helpful, respectful, and focused on value to customer.
-    - You are allowed to explain *why the model thinks a segment is likely to buy*, in plain language.
-        """.strip()
+    {rules_text}
+
+    Policy:
+        - Do NOT reveal internal model weights or math.
+    - Do NOT invent personal/sensitive attributes beyond provided data.
+    - Keep tone helpful, respectful, and value-focused.
+     - You may explain drivers in plain language, but never mention “model”, “probability”, or “SHAP” in the final agent script.
+    """.strip()
 
     return global_prompt
 
 
-def build_customer_prompt(row, driver_list, extra_context_cols=None):
+def build_customer_prompt(row, driver_list, extra_context_cols=None, name_field=None):
     """
     row: una fila de tu df (por ejemplo df.loc[idx])
          que tiene columnas humanas tipo 'state_name', 'previous_classification', etc.
@@ -91,24 +109,43 @@ def build_customer_prompt(row, driver_list, extra_context_cols=None):
             if col in row:
                 context_lines.append(f"{col} = {row[col]}")
     context_block = "\n".join(context_lines) if context_lines else "No additional context."
+    
+    # Optional name for sample script
+    name_value = (row.get(name_field) if name_field and name_field in row else "Customer")
 
     # 3. Construye el prompt final
     prompt = f"""
-    We are preparing a telemarketing/sales pitch for a prepaid mobile customer.
-
-    Predicted probability of accepting the offer: {row['proba']:.2%}
-
-    Relevant context for this customer:
+    [Customer Context]
+    - Acceptance likelihood (score): {row.get('proba', float('nan')):.2%}
+    - Attributes:
     {context_block}
 
-    The following factors were most influential in predicting that this customer is likely to accept an offer:
+    - Top influencing factors for this specific customer:
     {driver_block}
 
-    Task:
-    1. Explain, in plain language, why this customer might respond positively.
-    2. Suggest how an agent should position the offer (tone, focus, what to mention).
-    3. Keep it short and actionable, as guidance for a call center agent.
-    4. Do NOT mention 'model', 'probability', 'algorithm', 'prediction', or 'SHAP'. Just speak as advice.
-        """.strip()
+    [Task]
+    Using ONLY the context above and the campaign rules from system prompt:
+    1) Decide Eligibility: {{Yes/No}} and give a brief reason if "No".
+    2) Select Suggested Band/Plan: {{PLAN_Q115|PLAN_Q135|PLAN_Q160|PLAN_Q185|PLAN_Q209}}.
+    3) Provide Authorized offer range: {{Qxx.xx–Qyy.yy}}.
+    4) Recommend an initial price within the authorized range: {{Qxx.xx}}. Justify in one line referencing recent spend.
+    5) If applicable, propose an Upsell option (next band) with a one-line justification.
+
+    Then produce a concise 3-line agent script:
+    - Value: tie benefits to recent spend (“with what you already invest per month…”).
+    - Price: keep within the assigned range.
+    - Close: immediate activation, no contract, same line/top-ups.
+
+    [Output Format]
+    Eligibility: <Yes/No> (+ reason if No)
+    Suggested Plan: <PLAN_Q115|PLAN_Q135|PLAN_Q160|PLAN_Q185|PLAN_Q209>
+    Authorized range: <Qxx.xx–Qyy.yy>
+    Recommended price: <Qxx.xx>  # one-line justification
+    Upsell option: <plan_if_any>  # brief justification
+    Script:
+    “{name_value}, over the last 3 months you’ve invested about Q<arpu_3m_prom>/month.
+    With the <plan_sugerido> plan you get more data/minutes for Q<precio_recomendado>, keeping your usual spend but with more value.
+    Shall I confirm activation? It goes live today — no contract, and you keep your same line.”
+    """.strip()
 
     return prompt
