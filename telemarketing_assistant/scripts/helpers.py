@@ -77,7 +77,29 @@ def build_global_context(df, feature_playbook=None, top_n=10, rules_text=None):
     return global_prompt
 
 
-def build_customer_prompt(row, driver_list, extra_context_cols=None, name_field=None):
+def _build_feature_points(driver_list, feature_playbook=None):
+    """
+    Construye los 5 puntos principales basados en los drivers y el playbook de características
+    
+    Args:
+        driver_list: Lista de diccionarios con información de drivers
+        feature_playbook: Diccionario de características y sus descripciones
+    
+    Returns:
+        str: Los 5 puntos formateados como texto
+    """
+    # Ordenar drivers por impacto absoluto
+    sorted_drivers = sorted(driver_list, key=lambda x: abs(x['impact']), reverse=True)
+    
+    points = []
+    for i, driver in enumerate(sorted_drivers[:5], 1):
+        feature = driver['feature']
+        description = feature_playbook.get(feature, "No description available.") if feature_playbook else ""
+        points.append(f"{i}) {feature}: {description}")
+    
+    return "\n".join(points)
+
+def build_customer_prompt(row, driver_list, extra_context_cols=None, name_field=None, feature_playbook=None):
     """
     row: una fila de tu df (por ejemplo df.loc[idx])
          que tiene columnas humanas tipo 'state_name', 'previous_classification', etc.
@@ -92,6 +114,8 @@ def build_customer_prompt(row, driver_list, extra_context_cols=None, name_field=
     extra_context_cols: lista de columnas del row que quieres pasar al LLM
                         para que hable más personalizado.
                         Ej: ["state_name", "previous_classification", "arpu_90_days", "network_age_years"]
+    
+    feature_playbook: diccionario con descripciones de las características
     """
 
     # 1. Prepara resumen de los drivers SHAP personalizados de este cliente
@@ -124,28 +148,61 @@ def build_customer_prompt(row, driver_list, extra_context_cols=None, name_field=
     {driver_block}
 
     [Task]
-    Using ONLY the context above and the campaign rules from system prompt:
-    1) Decide Eligibility: {{Yes/No}} and give a brief reason if "No".
-    2) Select Suggested Band/Plan: {{PLAN_Q115|PLAN_Q135|PLAN_Q160|PLAN_Q185|PLAN_Q209}}.
-    3) Provide Authorized offer range: {{Qxx.xx–Qyy.yy}}.
-    4) Recommend an initial price within the authorized range: {{Qxx.xx}}. Justify in one line referencing recent spend.
-    5) If applicable, propose an Upsell option (next band) with a one-line justification.
+    Analyze these top 5 features from highest to lowest impact, using ONLY their values and impacts:
 
-    Then produce a concise 3-line agent script:
-    - Value: tie benefits to recent spend (“with what you already invest per month…”).
-    - Price: keep within the assigned range.
-    - Close: immediate activation, no contract, same line/top-ups.
+    1) Feature Analysis (Most Impactful):
+       - Feature Context: Use the playbook description to understand what this raw metric means
+       - Current Value: Interpret the specific value provided
+       - Impact Direction: Consider if the impact is positive/negative for conversion
+       - Action Insight: Determine specific actions based on this feature's influence
+
+    2) Secondary Pattern:
+       - Feature Context: Reference the playbook meaning for this raw metric
+       - Value Analysis: Evaluate the concrete measurement provided
+       - Impact Interpretation: Understand how this affects customer decision
+       - Usage Pattern: Extract behavioral insights from this data point
+
+    3) Supporting Evidence:
+       - Feature Context: Apply the playbook definition
+       - Data Point Analysis: Break down what the value indicates
+       - Impact Assessment: Connect impact direction to customer behavior
+       - Pattern Recognition: Identify relevant trends from this metric
+
+    4) Behavioral Marker:
+       - Feature Context: Consider the playbook explanation
+       - Value Significance: Analyze what this measurement reveals
+       - Impact Contribution: How this shapes customer response
+       - Behavioral Insight: Extract actionable understanding
+
+    5) Final Indicator:
+       - Feature Context: Use the playbook to frame this metric
+       - Value Review: What does this specific measurement tell us
+       - Impact Role: How this influences overall likelihood
+       - Opportunity Signal: Identify potential based on this data
+
+    Then provide a data-driven synthesis:
+    - Evidence Summary: Combine insights from ALL 5 features, with their specific values
+    - Value Connection: Link each feature's impact to concrete benefits
+    - Action Strategy: Propose steps based on the analyzed feature set
 
     [Output Format]
-    Eligibility: <Yes/No> (+ reason if No)
-    Suggested Plan: <PLAN_Q115|PLAN_Q135|PLAN_Q160|PLAN_Q185|PLAN_Q209>
-    Authorized range: <Qxx.xx–Qyy.yy>
-    Recommended price: <Qxx.xx>  # one-line justification
-    Upsell option: <plan_if_any>  # brief justification
-    Script:
-    “{name_value}, over the last 3 months you’ve invested about Q<arpu_3m_prom>/month.
-    With the <plan_sugerido> plan you get more data/minutes for Q<precio_recomendado>, keeping your usual spend but with more value.
-    Shall I confirm activation? It goes live today — no contract, and you keep your same line.”
+    Customer Analysis for {name_value}:
+
+    Feature Impact Summary:
+    1. Primary Driver: [Feature Name] Value: [Raw Metric] | Key Insight: [Based on Playbook]
+
+    2. Secondary Driver: [Feature Name] |Value: [Raw Metric] | Key Insight: [Based on Playbook]
+
+    3. Tertiary Driver: [Feature Name] | Value: [Raw Metric] | Key Insight: [Based on Playbook]
+
+    4. Fourth Driver: [Feature Name] | Value: [Raw Metric] | Key Insight: [Based on Playbook]
+
+    5. Fifth Driver: [Feature Name] | Value: [Raw Metric] | Key Insight: [Based on Playbook]
+
+    Evidence-Based Summary:
+    • Patterns: [Key findings from top 3 features]
+    • Profile: [Customer behavior based on values]
+    • Actions: [Data-supported recommendations]
     """.strip()
 
     return prompt
