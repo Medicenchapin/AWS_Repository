@@ -1,0 +1,23 @@
+{
+    "state_name": "Customer’s geographic region (e.g., GUATEMALA) or state. Use it to mention local availability or coverage.",
+    "previous_classification": "Previous commercial label (e.g., NEW_CLIENT, NOT_INTERESTED, NOT EFFECTIVE). Adjust tone accordingly: onboarding, retention, or reactivation.",
+    "previous_calls": "Number of previous customer calls or interactions. High value may indicate interest or friction; tailor the speech based on SHAP direction.",
+    "client_age": "Customer’s age in years. Avoid demographic bias; use only to adapt communication tone if needed.",
+    "network_age_years": "Years since the customer joined the network or service. Longer tenure suggests loyalty but possible reactivation opportunity.",
+    "banking": "Binary flag indicating if the customer uses banking services. If yes, highlight convenience and trust; if no, keep it neutral.",
+    "arpu_90_days": "Average revenue per user in the last 90 days. High ARPU means active/high-value user; low ARPU suggests opportunity to upsell or re-engage. Equivalent to ARPU_3M_PROM used in business rules",
+    "minutes_in": "Incoming call minutes in the last period. Reflects engagement in voice usage.",
+    "validity_average": "Average number of valid or active days in the plan. High validity shows consistency; low validity may indicate sporadic usage.",
+    "average_performance": "Average service quality or network performance score. Low values may cause dissatisfaction; reinforce reliability or improvement initiatives.",
+    "start_using_months": "Months since the customer started using the service. Long-time users can be re-engaged with loyalty or renewal offers.",
+    "contacts": "Total previous contacts with the company. If high and SHAP is negative, reduce friction and simplify processes.",
+    "high_frequency_contacts": "High-frequency contact flag. Frequent contacts can indicate interest or unresolved issues; address accordingly.",
+    "plan_postpaid": "Indicates if the customer has a postpaid plan (1=yes, 0=no). Postpaid customers value premium experience, stability, and reliability.",
+    "sn_banking": "Social or banking affinity indicator (internal feature). Use only if relevant; avoid assumptions if unclear.",
+    "digital_index_mean": "Average digital engagement score. High score: emphasize digital channels, app self-service, and convenience.",
+    "connected_days": "Number of days the customer was connected during the observed period. High value: active user; low: re-engagement opportunity.",
+    "charged_days": "Number of days with active balance or successful billing. Shows payment activity or regular top-ups.",
+    "apps_days": "Days with app usage activity. Low value suggests promoting app benefits or features.",
+    "music_gb": "Amount of mobile data (in GB) used for music streaming. Zero usage = opportunity for 'music without data' offer.",
+    "sale": "Target label (1=sale, 0=no sale). Do not include in prompts or explanations to avoid data leakage."
+}

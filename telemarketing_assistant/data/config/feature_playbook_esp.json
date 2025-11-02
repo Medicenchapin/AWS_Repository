@@ -1,0 +1,23 @@
+ {
+    "state_name": "Región o estado geográfico del cliente (por ejemplo, GUATEMALA). Úsalo para hacer referencia a cobertura o disponibilidad local.",
+    "previous_classification": "Etiqueta comercial previa (por ejemplo, NEW_CLIENT, NOT_INTERESTED, NOT_EFFECTIVE). Ajusta el tono según el contexto: incorporación, retención o reactivación.",
+    "previous_calls": "Número de llamadas o interacciones previas del cliente. Un valor alto puede reflejar interés o fricción; adapta la interpretación según la dirección del SHAP.",
+    "client_age": "Edad del cliente en años. Evita sesgos demográficos; úsala solo para ajustar el tono de comunicación si es necesario.",
+    "network_age_years": "Años desde que el cliente se unió a la red o servicio. Una mayor antigüedad puede sugerir lealtad o una oportunidad de reactivación.",
+    "banking": "Indicador binario que señala si el cliente utiliza servicios bancarios. Si es afirmativo, enfatiza confianza y conveniencia; si no, mantén un tono neutral.",
+    "arpu_90_days": "Ingreso promedio por usuario en los últimos 90 días. Un ARPU alto indica cliente activo o de alto valor; un ARPU bajo sugiere oportunidad de venta adicional o reactivación. Equivalente a ARPU_3M_PROM en las reglas de negocio.",
+    "minutes_in": "Minutos de llamadas entrantes en el último periodo. Refleja el nivel de uso del servicio de voz.",
+    "validity_average": "Número promedio de días activos o válidos en el plan. Una alta validez indica consistencia; baja validez puede reflejar uso esporádico.",
+    "average_performance": "Puntaje promedio de desempeño o calidad de red. Valores bajos pueden causar insatisfacción; refuerza mensajes de confiabilidad o mejora.",
+    "start_using_months": "Meses desde que el cliente comenzó a usar el servicio. Usuarios con más tiempo pueden reengancharse con ofertas de lealtad o renovación.",
+    "contacts": "Total de contactos previos con la empresa. Si es alto y el SHAP es negativo, sugiere reducir fricción y simplificar procesos.",
+    "high_frequency_contacts": "Indicador de contactos de alta frecuencia. Frecuentes interacciones pueden indicar interés o problemas sin resolver; actúa según corresponda.",
+    "plan_postpaid": "Indica si el cliente tiene un plan pospago (1 = sí, 0 = no). Los clientes pospago valoran la experiencia premium, estabilidad y confiabilidad.",
+    "sn_banking": "Indicador de afinidad social o bancaria (variable interna). Úsalo solo si es relevante; evita suposiciones si no hay claridad.",
+    "digital_index_mean": "Puntaje promedio de interacción digital. Un valor alto implica afinidad con canales digitales, autoservicio y conveniencia.",
+    "connected_days": "Número de días que el cliente estuvo conectado durante el periodo observado. Un valor alto refleja actividad; un valor bajo sugiere oportunidad de reactivación.",
+    "charged_days": "Número de días con saldo activo o cobros exitosos. Muestra actividad de pago o recargas frecuentes.",
+    "apps_days": "Días con actividad en aplicaciones. Un valor bajo sugiere promover beneficios o características de la app.",
+    "music_gb": "Cantidad de datos móviles (en GB) usados para música. Un valor cero representa oportunidad para ofertas de 'música sin consumo de datos'.",
+    "sale": "Etiqueta objetivo (1 = venta, 0 = no venta). No debe incluirse en prompts o explicaciones para evitar fuga de información del modelo."
+}
