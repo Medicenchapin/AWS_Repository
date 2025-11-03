@@ -1,7 +1,7 @@
 import requests
 import os
 import ollama
-from openai import OpenAI
+# from openai import OpenAI
 
 class Model:
     
@@ -9,9 +9,6 @@ class Model:
         self.model = model
         self.url = url
         self.apikey = apikey
-        
-        pass
-
 
     def call_llm(self, global_context: str, customer_prompt: str) -> str:
         full_prompt = [
@@ -19,25 +16,28 @@ class Model:
             {'role': 'user', 'content': customer_prompt}
         ]
         out: str = ''
-        for chunk in ollama.chat(OLLAMA_MODEL, messages=full_prompt, stream=True):
-            print(chunk['message']['content'], end='', flush=True)
-        # return out.strip()
+        for chunk in ollama.chat(self.model, messages=full_prompt, stream=True):
+            content = chunk["message"]["content"]
+            # print(content, end="", flush=True)
+            out += content        
+        return out
         
         
     def call_openAI(self, global_context: str, customer_prompt:str):
+        pass
         
         # Configura el endpoint de Ollama como si fuera OpenAI
-        client = OpenAI(base_url="http://localhost:11434/v1", api_key="none")
+        # client = OpenAI(base_url="http://localhost:11434/v1", api_key="none")
 
-        response = client.chat.completions.create(
-            model="cas/nous-hermes-2-mistral-7b-dpo",
-            messages=[
-                {"role": "system", "content": "Eres un analista de telecomunicaciones."},
-                {"role": "user", "content": "Genera un resumen SHAP para este cliente: ..."}
-            ]
-        )
+        # response = client.chat.completions.create(
+        #     model="cas/nous-hermes-2-mistral-7b-dpo",
+        #     messages=[
+        #         {"role": "system", "content": "Eres un analista de telecomunicaciones."},
+        #         {"role": "user", "content": "Genera un resumen SHAP para este cliente: ..."}
+        #     ]
+        # )
 
-        print(response.choices[0].message.content)
+        # print(response.choices[0].message.content)
 
 
 
