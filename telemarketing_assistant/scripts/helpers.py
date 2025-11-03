@@ -128,7 +128,7 @@ class Helpers:
                 reglas_block = reglas_default
 
             system_prompt = f"""
-            Eres un asistente analítico para una empresa de telecomunicaciones. Tu función es ayudar a interpretar los principales drivers (valores SHAP) del modelo a nivel global y por cliente, en términos de negocio.
+            Eres un asistente analítico para una empresa de telecomunicaciones en GUATEMALA. Tu función es ayudar a interpretar los principales drivers (valores SHAP) del modelo a nivel global y por cliente, en términos de negocio.
 
             {titulo}
             Estas son las variables globalmente más influyentes (TOP {top_n}) y su significado de negocio:
@@ -143,119 +143,27 @@ class Helpers:
             """.strip()
 
             return system_prompt
-
-
-    def build_customer_prompt_summary(self, row, driver_list, max_features=10):
+        
+    def label_magnitude(shap_values):
         """
-        Genera un prompt en español que resume los factores más influyentes
-        (drivers SHAP) para un cliente específico.
-
-        Parámetros:
-        - row: dict o pandas.Series con información del cliente, incluyendo 'proba'
-        - driver_list: lista de dicts con {'feature', 'value', 'impact'}
-        - feature_playbook: dict con descripciones de negocio (opcional)
-        - max_features: número máximo de drivers a incluir
-
-        Retorna: texto del prompt listo para el modelo LLM
+        Etiqueta magnitud relativa dentro del cliente usando percentiles.
+        Retorna lista de etiquetas ['fuerte'|'moderada'|'débil'] en el mismo orden.
         """
+        absv = np.abs(np.array(shap_values, dtype=float))
+        if absv.max() == 0:
+            return ['débil'] * len(absv)
+        p66 = np.percentile(absv, 66)
+        p33 = np.percentile(absv, 33)
+        labels = []
+        for v in absv:
+            if v >= p66: 
+                labels.append('fuerte')
+            elif v >= p33:
+                labels.append('moderada')
+            else:
+                labels.append('débil')
+        return labels
 
-        # 1️⃣ Ordenar drivers por importancia absoluta (impacto)
-        top_drivers = sorted(driver_list, key=lambda d: abs(d["impact"]), reverse=True)[:max_features]
-
-        # 2️⃣ Crear resumen de cada driver
-        driver_lines = []
-        for d in top_drivers:
-            feature = d["feature"]
-            value = d["value"]
-            impact = d["impact"]
-
-            direction = "positivo (favorece contacto)" if impact > 0 else "negativo (revisar antes de contactar)"
-            desc = self.get_feat_playbook().get(feature, "Sin descripción disponible.") if self.features_playbook else ""
-
-            driver_lines.append(
-                f"- **{feature}** ({direction}): valor = {value:.2f}. {desc}"
-            )
-
-        driver_block = "\n".join(driver_lines)
-
-        # 3️⃣ Resumen general del cliente
-        prompt = f"""
-        Eres un analista de campañas de telecomunicaciones prepago.
-
-        Analiza los factores más influyentes en la probabilidad de compra para un cliente individual, basándote en valores SHAP.
-        El modelo predijo una probabilidad de aceptación del **{row['proba']:.1%}**.
-
-        A continuación se listan los principales *drivers* (variables) que explican esta predicción,
-        ordenados por relevancia:
-
-        {driver_block}
-
-        Tareas:
-        1. Resume brevemente qué podría estar motivando o desmotivando al cliente.
-        2. Indica si conviene **contactarlo** o **analizar más información** antes de hacerlo.
-        3. No menciones palabras técnicas como “modelo”, “SHAP”, “algoritmo” o “predicción”.
-        4. Escribe en lenguaje de negocio claro y objetivo, con tono ejecutivo.
-            """.strip()                     
-
-        return prompt
-    
-    def build_customer_prompt_summary_v2(self, row, driver_list, max_features=10):
-        """
-        Genera un prompt en español que muestra los principales drivers SHAP
-        con sus valores crudos e impacto, para que el modelo genere una opinión ejecutiva.
-
-        Parámetros:
-        - row: dict o pandas.Series con información del cliente, incluyendo 'proba'
-        - driver_list: lista de dicts con {'feature', 'value', 'crude_value', 'impact'}
-        - feature_playbook: dict con descripciones de negocio (opcional)
-        - max_features: número máximo de drivers a incluir
-
-        Retorna: texto del prompt listo para enviar al LLM
-        """
-
-        # 1️⃣ Ordenar drivers por importancia absoluta
-        top_drivers = sorted(driver_list, key=lambda d: abs(d["impact"]), reverse=True)[:max_features]
-
-        # 2️⃣ Construir listado con valores crudos y contexto
-        driver_lines = []
-        for d in top_drivers:
-            feature = d.get("feature", "")
-            value = d.get("value", None)
-            crude_value = d.get("crude_value", None)
-            impact = d.get("impact", 0.0)
-
-            direction = "positivo (indica mayor probabilidad de respuesta)" if impact > 0 else "negativo (puede reducir la probabilidad)"
-            desc = self.get_feat_playbook().get(feature, "Sin descripción disponible.") if self.get_feat_playbook() else ""
-
-            driver_lines.append(
-                f"- **{feature}** → valor crudo: `{crude_value}`, transformado: `{value:.3f}`, impacto: {impact:+.3f} → {direction}. {desc}"
-            )
-
-        driver_block = "\n".join(driver_lines)
-
-        # 3️⃣ Construcción del prompt
-        prompt = f"""
-        Eres un analista especializado en comportamiento de clientes de telecomunicaciones prepago.
-
-        A continuación se muestra un resumen de las variables más influyentes en la predicción de aceptación de oferta
-        para un cliente específico. Cada variable incluye su valor crudo, valor transformado y dirección del impacto
-        según el modelo analizado.
-
-        Probabilidad estimada de aceptación: **{row['proba']:.1%}**
-
-        **Principales factores del cliente:**
-        {driver_block}
-
-        Con base en esta información, proporciona una breve interpretación ejecutiva sobre:
-        - Qué comportamiento general refleja este cliente.
-        - Qué aspectos podrían estar impulsando o limitando su disposición a aceptar una oferta.
-
-        Tu respuesta debe ser objetiva y realista, evitando lenguaje técnico o especulativo.
-        """.strip()
-
-        return prompt
-    
-    
     def build_customer_prompt_with_shap(
         self,
         row,
@@ -296,6 +204,10 @@ class Helpers:
                 return round(float(x), n)
             except Exception:
                 return x
+            
+        # 3) magnitudes
+        # shap_value=[d.get('impact', 0.0) for d in top_drivers]
+        # magnitudes = self.label_magnitude(shap_value)
 
         drivers_payload = []
         for d in top_drivers:
@@ -325,7 +237,8 @@ class Helpers:
                 "transformed_value": _round(val, 6) if isinstance(val, (int, float)) else val,
                 "shap_value": _round(imp, 6) if isinstance(imp, (int, float)) else imp,
                 "direction": "positivo" if (isinstance(imp, (int, float)) and imp > 0) else "negativo",
-                "business_hint": desc
+                # "magnitude": mag,
+                # "business_hint": desc
             })
 
         drivers_json = json.dumps(drivers_payload, ensure_ascii=False)
@@ -333,39 +246,43 @@ class Helpers:
         # 3) Arma el prompt
         proba_txt = f"{float(row['proba'])*100:.1f}%" if "proba" in row else "N/D"
         json_clause = (
-            f"""
-    Además del listado en viñetas, devuelve a continuación un bloque JSON que sea un ESPEJO EXACTO
-    de los {len(top_drivers)} elementos (mismos campos y valores), con la clave raíz "drivers". No agregues otros campos.
-            """.strip()
-            if include_json_mirror else ""
+        f"""
+        Además del listado en viñetas, devuelve a continuación un bloque JSON que sea un ESPEJO EXACTO
+        de los {len(top_drivers)} elementos (mismos campos y valores), con la clave raíz "drivers". agrega tu insight. Recuerda que el insight debe ser profesional y acertado
+        """.strip()
+        if include_json_mirror else ""
         )
 
         prompt = f"""
-    Eres un asistente analítico para campañas de telecomunicaciones prepago.
+        Eres un asistente de telemarketing para campañas de telecomunicaciones de prepago en GUATEMALA y 
+        debes generar INSIGHTS ACCIONABLES a partir de los drivers SHAP de un cliente.
 
-    Cliente:
-    - Probabilidad estimada de aceptación: {proba_txt}
+        Cliente:
+        - Probabilidad estimada de aceptación: {proba_txt}
 
-    A continuación tienes los **10 principales drivers SHAP** del cliente (ya ordenados por relevancia).
-    Cada elemento incluye: nombre para mostrar, valor crudo, valor transformado, valor SHAP y una pista de negocio.
-    **No inventes ni alteres valores numéricos**: utiliza exactamente los provistos.
+        A continuación tienes los **{len(top_drivers)} principales drivers SHAP** del cliente (ya ordenados por relevancia).
+        Cada elemento incluye: nombre para mostrar, valor crudo, valor transformado, valor SHAP y una pista de negocio.
+        **No inventes ni alteres valores numéricos**: utiliza exactamente los provistos.
 
-    DRIVERS_JSON:
-    {drivers_json}
+        Instrucciones para los drivers del cliente:
+        - Interpreta cada driver con base en:
+        (a) Dirección del SHAP: positivo = favorece aceptación; negativo = reduce aceptación.
+        (b) Magnitud del SHAP: fuerte / moderada / débil (ya viene etiquetada).
+        (c) Valor crudo del cliente (raw_value) si está disponible.
+        DRIVERS_JSON:
+        {drivers_json}
 
-    Instrucciones de salida (en español):
-    1) Devuelve primero un título: "### Resumen SHAP del Cliente".
-    2) Luego, una lista de viñetas (una por driver) con este formato:
-    - <feature_display>: <dirección (positivo/negativo)>. SHAP=<shap_value>. Crudo=<raw_value>. Transformado=<transformed_value>. Insight=<una frase corta y realista, basada en "business_hint" si está disponible>.
-    * Usa exactamente los valores provistos para SHAP, Crudo y Transformado (no los redondees de nuevo).
-    * La "dirección" es "positivo" si SHAP > 0, en otro caso "negativo".
-    * La frase de insight debe ser breve, de negocio y no técnica. No uses jerga del modelo.
-    {json_clause}
+        Instrucciones de salida (en español):
+        1) Devuelve primero un título: "### Resumen SHAP del Cliente".
+        2) Luego, una lista de viñetas (una por driver) con este formato:
+        - <feature_display>: <dirección (positivo/negativo)>. SHAP=<shap_value>. Crudo=<raw_value>. Transformado=<transformed_value>. Insight=<una frase corta y realista, basada en "business_hint" si está disponible>.
+        * Usa exactamente los valores provistos para SHAP, Crudo y Transformado (no los redondees de nuevo).
+        {json_clause}
 
-    Políticas:
-    - No muestres información personal no provista.
-    - No inventes métricas ni valores.
-    - Mantén el tono profesional y conciso.
-    """.strip()
+        Políticas:
+        - No muestres información personal no provista.
+        - No inventes métricas ni valores.
+        - Mantén el tono profesional y conciso.
+        """.strip()
 
         return prompt

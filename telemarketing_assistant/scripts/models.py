@@ -12,16 +12,20 @@ class Model:
         self.apikey = apikey
 
     def call_llm(self, global_context: str, customer_prompt: str) -> str:
-        full_prompt = [
-            {'role': 'system', 'content': global_context},
-            {'role': 'user', 'content': customer_prompt}
-        ]
-        out: str = ''
-        for chunk in ollama.chat(self.model, messages=full_prompt, stream=True):
-            content = chunk["message"]["content"]
-            # print(content, end="", flush=True)
-            out += content        
-        return out
+        try:
+            full_prompt = [
+                {'role': 'system', 'content': global_context},
+                {'role': 'user', 'content': customer_prompt}
+            ]
+            out: str = ''
+            for chunk in ollama.chat(self.model, messages=full_prompt, stream=True):
+                content = chunk["message"]["content"]
+                # print(content, end="", flush=True)
+                out += content        
+            return out
+        except ValueError as e:
+            print(e)
+            return None
         
         
     def call_openAI(self, global_context: str, customer_prompt:str):
