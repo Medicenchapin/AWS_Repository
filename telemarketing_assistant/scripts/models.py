@@ -1,4 +1,3 @@
-import requests
 import os
 import ollama
 from openai import OpenAI
@@ -24,17 +23,20 @@ class Model:
         
         
     def call_openAI(self, global_context: str, customer_prompt:str):
-        client = OpenAI()
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": global_context},
-                {"role": "user", "content": customer_prompt}
-            ]
-        )
-
-        out = response.choices[0].message.content
-        return out
+        try:
+            client = OpenAI(api_key=self.apikey)
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": global_context},
+                    {"role": "user", "content": customer_prompt}
+                ]
+            )
+            out = response.choices[0].message.content
+            return out
+        except ValueError as e:
+            print(e)
+            return None
 
 
 
