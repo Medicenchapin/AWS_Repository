@@ -248,7 +248,7 @@ class Helpers:
         json_clause = (
         f"""
         Además del listado en viñetas, devuelve a continuación un bloque JSON que sea un ESPEJO EXACTO
-        de los {len(top_drivers)} elementos (mismos campos y valores), con la clave raíz "drivers". agrega tu insight. Recuerda que el insight debe ser profesional y acertado
+        de los {len(top_drivers)} elementos (mismos campos y valores), con la clave raíz "drivers". agrega tu insight y justificalo (si crees necesario apoyate del raw_value, también recuerda adjuntar el valor del raw_value en tu justificación). Recuerda que el insight debe ser profesional y acertado para que sirva de apoyo al agente de telemarketing 
         """.strip()
         if include_json_mirror else ""
         )
