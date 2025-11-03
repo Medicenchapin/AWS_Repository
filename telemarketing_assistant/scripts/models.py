@@ -1,4 +1,3 @@
-import requests
 import os
 import ollama
 from openai import OpenAI
